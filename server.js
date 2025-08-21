@@ -4,17 +4,22 @@ const path = require('path');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcrypt');
+const axios = require('axios');
 
 const app = express();
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 
+// Initialize APIs
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const geminiModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 
+// In-memory cache for quiz answers
 const quizAnswersCache = {};
 
+// Database Connection Pool
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
@@ -25,46 +30,78 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
+// Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// IMPROVED: Generate quiz with better error logging
-app.get('/api/generate-quiz/:topic/:userId', async (req, res) => {
-    const { topic, userId } = req.params;
-    console.log(`Generating quiz for topic: "${topic}"...`);
-
-    const prompt = `
-        You are a quiz generator. Your task is to create a quiz with 5 multiple-choice questions on a specific topic.
-        Topic: "${topic}"
-        IMPORTANT: Format the output strictly as a JSON object. Do not include any text, explanation, or markdown formatting like \`\`\`json outside of the JSON object itself.
-        The JSON object must have a single key "questions" which is an array of question objects.
-        Each question object in the array must have "question_id" (a number), "question_text", "options" (an array of 4 objects with "option" and "text"), and "correct_option" (a capital letter like "A").
-    `;
-
+// --- HELPER FUNCTION ---
+async function searchYouTube(query) {
+    if (!YOUTUBE_API_KEY) {
+        console.log("YouTube API Key not found. Skipping YouTube search.");
+        return [];
+    }
     try {
-        const result = await model.generateContent(prompt);
+        const url = `https://www.googleapis.com/youtube/v3/search`;
+        const params = { part: 'snippet', q: query, key: YOUTUBE_API_KEY, maxResults: 3, type: 'video', order: 'relevance' };
+        const response = await axios.get(url, { params });
+        return response.data.items.map(item => ({
+            title: item.snippet.title,
+            type: 'YouTube Video',
+            url: `https://www.youtube.com/watch?v=${item.id.videoId}`
+        }));
+    } catch (error) {
+        console.error('Error fetching from YouTube API:', error.response ? error.response.data.error.message : error.message);
+        return [];
+    }
+}
+
+// =================================================================
+// --- CORE API ROUTES ---
+// =================================================================
+
+// ROUTE 1: Generate a course
+app.post('/api/course/generate', async (req, res) => {
+    const { topic, duration, learningGoals, skillLevel } = req.body;
+    const coursePrompt = `You are an expert curriculum designer. Create a detailed course outline for a user with a skill level of "${skillLevel}". The topic is "${topic}" for a duration of "${duration} weeks" with these goals: "${learningGoals}". Generate a strict JSON with a "title" and a "modules" array. Each module must have "name", "description", and "learningOutcomes". Do not include a "resources" key.`;
+    try {
+        const result = await geminiModel.generateContent(coursePrompt);
         const response = await result.response;
-        let aiResponseContent = response.text().trim();
-
-        // --- ADDED FOR DEBUGGING ---
-        console.log("--- Raw Response from Google API ---");
-        console.log(aiResponseContent);
-        console.log("------------------------------------");
-        // ---------------------------
-
-        if (aiResponseContent.startsWith('```json')) {
-            aiResponseContent = aiResponseContent.substring('```json\n'.length);
+        const generatedCourse = JSON.parse(response.text().trim().replace(/^```json\n|```$/g, ''));
+        for (const module of generatedCourse.modules) {
+            const searchQuery = `${module.name} ${topic} tutorial`;
+            module.resources = await searchYouTube(searchQuery);
         }
-        if (aiResponseContent.endsWith('```')) {
-            aiResponseContent = aiResponseContent.slice(0, -3);
-        }
+        res.json({
+            status: 'success',
+            message: 'Course and YouTube resources generated successfully!',
+            generatedCourse: generatedCourse,
+            receivedData: { topic, duration, skillLevel, learningGoals }
+        });
+    } catch (error) {
+        console.error('Error in course generation workflow:', error);
+        res.status(500).json({ status: 'error', message: 'Failed to generate course. The AI may have returned an invalid format.' });
+    }
+});
 
-        const quizData = JSON.parse(aiResponseContent.trim());
+// ROUTE 2: Generate a quiz for a specific saved course
+app.post('/api/course/:courseId/quiz', async (req, res) => {
+    const { courseId } = req.params;
+    const { topic, userId, difficulty, quizType } = req.body;
+    const questionCount = quizType === 'test' ? 10 : 5;
+    console.log(`Generating a ${difficulty} ${quizType} with ${questionCount} questions for topic: "${topic}"`);
 
-        if (!quizData.questions || quizData.questions.length === 0) {
-            throw new Error('API did not return questions in the expected format.');
+    const prompt = `You are a quiz generator. Create a ${difficulty}-level ${quizType} with exactly ${questionCount} multiple-choice questions to test a user's knowledge on the topic: "${topic}". Format the output strictly as a JSON object with a "questions" key. Each question must have "question_id" (a unique number), "question_text", "options" (an array of 4 objects, each with an "option" key like "A" and a "text" key), and "correct_option".`;
+    
+    try {
+        const result = await geminiModel.generateContent(prompt);
+        const response = await result.response;
+        const aiResponseContent = response.text().trim().replace(/^```json\n|```$/g, '');
+        const quizData = JSON.parse(aiResponseContent);
+
+        if (!quizData.questions || !Array.isArray(quizData.questions)) {
+            throw new Error('API response did not contain a valid "questions" array.');
         }
 
         const answers = {};
@@ -73,89 +110,71 @@ app.get('/api/generate-quiz/:topic/:userId', async (req, res) => {
             const { correct_option, ...questionForClient } = q;
             return questionForClient;
         });
-        
-        quizAnswersCache[userId] = answers;
-        setTimeout(() => { delete quizAnswersCache[userId]; }, 600000);
+
+        quizAnswersCache[`${userId}_${courseId}`] = answers;
+        setTimeout(() => { delete quizAnswersCache[`${userId}_${courseId}`]; }, 600000);
 
         res.json({ status: 'success', questions: questionsForClient });
-
     } catch (error) {
-        console.error('--- ERROR IN QUIZ GENERATION ---');
-        console.error(error);
-        res.status(500).json({ status: 'error', message: "The API returned an invalid response. Check the server terminal for details." });
+        console.error('Error generating post-course quiz:', error);
+        // Ensure a JSON error response is sent
+        res.status(500).json({ status: 'error', message: 'Failed to generate quiz. The AI may have returned an invalid format.' });
     }
 });
 
-// (The rest of your server.js file remains the same)
-// ... your /api/quiz/submit, /save-course, /signup, /login, /my-courses routes ...
-// Make sure you have the rest of the routes from the previous version here
 
-// Submit quiz and generate course
-app.post('/api/quiz/submit', async (req, res) => {
-    const { userId, topic, answers, duration, learningGoals } = req.body;
-    const correctAnswers = quizAnswersCache[userId];
+// ROUTE 3: Submit the post-course quiz
+app.post('/api/course/:courseId/submit-quiz', async (req, res) => {
+    const { courseId } = req.params;
+    const { userId, answers, topic, difficulty, quizType } = req.body;
+    const cacheKey = `${userId}_${courseId}`;
+    const correctAnswers = quizAnswersCache[cacheKey];
 
-    if (!correctAnswers) {
-        return res.status(400).json({ status: 'error', message: 'Quiz session expired or not found. Please start again.' });
-    }
+    if (!correctAnswers) return res.status(400).json({ status: 'error', message: 'Quiz session expired.' });
 
     let score = 0;
     const questionIds = Object.keys(answers);
-    questionIds.forEach(id => {
-        if (answers[id] === correctAnswers[id]) {
-            score++;
-        }
-    });
-
-    delete quizAnswersCache[userId];
-
-    const totalQuestions = questionIds.length;
-    const percentage = totalQuestions > 0 ? (score / totalQuestions) * 100 : 0;
-    let determinedSkillLevel = 'Beginner';
-    if (percentage > 75) determinedSkillLevel = 'Advanced';
-    else if (percentage > 40) determinedSkillLevel = 'Intermediate';
-
-    const coursePrompt = `You are an expert curriculum designer. Your task is to create a detailed course outline. Course Topic: "${topic}", Desired Duration: "${duration} weeks", Target Skill Level: "${determinedSkillLevel}", Specific Learning Goals: "${learningGoals}". Please generate a structured course outline in strict JSON format. The JSON object should have a "title" and a "modules" array. Each module must have "name", "description", "duration", "learningOutcomes" (an array of strings), and "resources" (an array of objects with "title", "type", and "url"). Do not include any text, explanation, or markdown formatting like \`\`\`json outside the JSON object itself.`;
+    questionIds.forEach(id => { if (answers[id] === correctAnswers[id]) score++; });
+    delete quizAnswersCache[cacheKey];
 
     try {
-        const result = await model.generateContent(coursePrompt);
-        const response = await result.response;
-        const aiResponseContent = response.text().trim().replace(/^```json\n|```$/g, '');
-        const generatedCourse = JSON.parse(aiResponseContent);
-        
-        res.json({
-            status: 'success',
-            message: `Course generated based on quiz result! Determined Skill Level: ${determinedSkillLevel}`,
-            determinedSkillLevel: determinedSkillLevel,
-            generatedCourse: generatedCourse,
-            receivedData: { topic, duration, skillLevel: determinedSkillLevel, learningGoals }
-        });
+        await pool.execute(
+            `INSERT INTO userquizresults (user_id, course_id, topic, score, total_questions, difficulty, quiz_type) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [userId, courseId, topic, score, questionIds.length, difficulty, quizType]
+        );
+        res.json({ status: 'success', message: `Quiz submitted! You scored ${score} out of ${questionIds.length}.` });
     } catch (error) {
-        console.error('Error calling Gemini API for course generation:', error);
-        res.status(500).json({ status: 'error', message: 'Failed to generate course after quiz.' });
+        console.error("Error saving quiz result:", error);
+        res.status(500).json({ status: 'error', message: 'Failed to save your quiz score.' });
     }
 });
 
-// User auth and course saving routes
+// (Your existing /save-course, /signup, /login, /my-courses routes remain here)
+// ...
 app.post('/save-course', async (req, res) => {
-  console.log('Received request to save course for user:', req.body.userId);
   const { generatedCourse, topic, duration, skillLevel, learningGoals, userId } = req.body;
-  if (!generatedCourse || !topic || !duration || !skillLevel || !learningGoals || !userId) {
-    return res.status(400).json({ status: 'error', message: 'Missing required course data or user ID to save.' });
-  }
+  if (!generatedCourse || !topic || !duration || !skillLevel || !learningGoals || !userId) return res.status(400).json({ status: 'error', message: 'Missing required course data.' });
   const generatedContentJson = JSON.stringify(generatedCourse);
   try {
-    const [rows] = await pool.execute(
-      `INSERT INTO courses (topic, duration, skill_level, learning_goals, generated_content, user_id) VALUES (?, ?, ?, ?, ?, ?)`,
-      [topic, duration, skillLevel, learningGoals, generatedContentJson, userId]
-    );
-    res.json({ status: 'success', message: 'Course saved successfully!', courseId: rows.insertId });
-  } catch (error) {
-    console.error('Error saving course to database:', error);
-    res.status(500).json({ status: 'error', message: `Failed to save course: ${error.message}` });
-  }
+    const [result] = await pool.execute(`INSERT INTO courses (topic, duration, skill_level, learning_goals, generated_content, user_id) VALUES (?, ?, ?, ?, ?, ?)`, [topic, duration, skillLevel, learningGoals, generatedContentJson, userId]);
+    res.json({ status: 'success', message: 'Course saved successfully!', courseId: result.insertId });
+  } catch (error) { res.status(500).json({ status: 'error', message: `Failed to save course: ${error.message}` }); }
 });
-
+app.get('/my-courses', async (req, res) => {
+    const userId = req.query.userId;
+    if (!userId) return res.status(400).json({ status: 'error', message: 'User ID is required.' });
+    try {
+        const [courses] = await pool.execute(`SELECT id, topic, duration, skill_level, learning_goals, generated_content, created_at FROM courses WHERE user_id = ? ORDER BY created_at DESC`, [userId]);
+        const parsedCourses = courses.map(course => {
+            try {
+                return {...course, generated_content: JSON.parse(course.generated_content)};
+            } catch (parseError) {
+                return {...course, generated_content: null}; 
+            }
+        });
+        res.json({ status: 'success', courses: parsedCourses });
+    } catch (error) { res.status(500).json({ status: 'error', message: `Failed to fetch courses: ${error.message}` }); }
+});
 app.post('/signup', async (req, res) => {
     const { username, password, email } = req.body;
     if (!username || !password) return res.status(400).json({ status: 'error', message: 'Username and password are required.' });
@@ -165,11 +184,8 @@ app.post('/signup', async (req, res) => {
         const password_hash = await bcrypt.hash(password, 10);
         await pool.execute(`INSERT INTO users (username, password_hash, email) VALUES (?, ?, ?)`, [username, password_hash, email || null]);
         res.status(201).json({ status: 'success', message: 'User registered successfully!' });
-    } catch (error) {
-        res.status(500).json({ status: 'error', message: `Sign-up failed: ${error.message}` });
-    }
+    } catch (error) { res.status(500).json({ status: 'error', message: `Sign-up failed: ${error.message}` }); }
 });
-
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ status: 'error', message: 'Username and password are required.' });
@@ -180,23 +196,9 @@ app.post('/login', async (req, res) => {
         const isPasswordValid = await bcrypt.compare(password, user.password_hash);
         if (!isPasswordValid) return res.status(401).json({ status: 'error', message: 'Invalid username or password.' });
         res.status(200).json({ status: 'success', message: 'Logged in successfully!', userId: user.id, username: user.username });
-    } catch (error) {
-        res.status(500).json({ status: 'error', message: `Login failed: ${error.message}` });
-    }
-});
-
-app.get('/my-courses', async (req, res) => {
-    const userId = req.query.userId;
-    if (!userId) return res.status(400).json({ status: 'error', message: 'User ID is required.' });
-    try {
-        const [courses] = await pool.execute(`SELECT id, topic, duration, skill_level, learning_goals, generated_content, created_at FROM courses WHERE user_id = ? ORDER BY created_at DESC`, [userId]);
-        const parsedCourses = courses.map(course => ({...course, generated_content: JSON.parse(course.generated_content)}));
-        res.json({ status: 'success', courses: parsedCourses });
-    } catch (error) {
-        res.status(500).json({ status: 'error', message: `Failed to fetch courses: ${error.message}` });
-    }
+    } catch (error) { res.status(500).json({ status: 'error', message: `Login failed: ${error.message}` }); }
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+    console.log(`Server is running on http://localhost:${PORT}`);
 });

@@ -1,0 +1,10 @@
+# Dependencies
+# This ignores the huge folder of downloaded packages.
+node_modules/
+
+# Secrets & Environment Variables
+# Add this now to prevent future mistakes.
+.env
+
+# Log files
+*.log

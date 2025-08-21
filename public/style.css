@@ -1,364 +1,152 @@
-/* General Body and Font Styling */
+/* --- Learniva: Chic Nude & Rose Gold Theme --- */
+
+/* 1. General Body and Font Styling */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
 body {
-    font-family: 'Inter', sans-serif; /* Use Inter font */
-    background: linear-gradient(135deg, #e0b0ff 0%, #a0c4ff 100%); /* Lilac to soft blue gradient */
-    min-height: 100vh; /* Ensure it covers full viewport height */
+    font-family: 'Poppins', sans-serif;
+    background: linear-gradient(135deg, #f5e9e2 0%, #e6d4c9 100%);
+    color: #4E423D; /* Deep warm brown for text */
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 20px 0; /* Add some vertical padding */
-    color: #333; /* Default text color */
-    overflow-x: hidden; /* Prevent horizontal scroll on small screens */
+    min-height: 100vh;
+    padding: 20px;
 }
 
-/* Main Container Styling (The central card) */
+/* 2. Main Container (Glassmorphism Effect) */
 .container {
-    max-width: 850px; /* Slightly wider for more content */
-    background-color: rgba(255, 255, 255, 0.95); /* Slightly transparent white for depth */
-    border-radius: 25px; /* Even more pronounced rounded corners */
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2); /* Deeper, softer shadow */
-    padding: 45px; /* Increased padding */
-    animation: fadeInScale 0.9s ease-out; /* Enhanced fade-in with slight scale */
-    border: 1px solid rgba(255, 255, 255, 0.8); /* Subtle light border */
-    backdrop-filter: blur(8px); /* More pronounced blur effect */
+    max-width: 850px;
+    background: rgba(255, 255, 255, 0.4);
+    border-radius: 20px;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.15);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    padding: 40px;
+    transition: all 0.3s ease-in-out;
+    position: relative;
+    z-index: 1;
 }
 
-/* Animations */
-@keyframes fadeInScale {
-    from { opacity: 0; transform: translateY(40px) scale(0.97); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-/* Headings and Slogans */
+/* 3. Headings and Slogans */
 .app-title {
-    color: #4b0082; /* Deep purple */
-    font-weight: 800; /* Extra bold */
-    margin-bottom: 10px;
-    letter-spacing: -1px; /* Tighter letter spacing */
-    font-size: 2.8em; /* Larger title */
-    text-shadow: 1px 2px 3px rgba(0,0,0,0.1); /* More prominent text shadow */
+    color: #6B5B55; /* Richer, warmer brown */
+    font-weight: 700;
+    font-size: 2.5em;
+    letter-spacing: -1px;
 }
 
 .app-slogan {
-    color: #6a5acd; /* Medium slate blue */
-    font-weight: 400; /* Regular weight */
-    margin-bottom: 50px; /* More spacing */
-    font-size: 1.2em;
+    color: #8C7B75; /* Softer brown */
+    font-weight: 400;
+    margin-bottom: 40px;
+    font-size: 1.1em;
 }
 
 .output-title {
-    color: #4b0082; /* Deep purple for output title */
-    font-weight: 700;
-    margin-top: 3rem; /* More spacing above */
-    margin-bottom: 2rem;
-    text-shadow: 0.5px 0.5px 1px rgba(0,0,0,0.05);
+    color: #6B5B55;
+    font-weight: 600;
 }
 
-/* Custom Form Styling (General card-like forms) */
+/* 4. Custom Form Styling */
 .custom-form {
-    border: none !important; /* Remove default Bootstrap border */
-    border-radius: 20px; /* Consistent rounded corners */
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12); /* Medium shadow for inner forms */
-    padding: 40px !important; /* Increased padding */
-    background-color: #fdfdff; /* Slightly off-white for forms */
-    transition: all 0.4s ease-in-out;
+    background-color: rgba(249, 246, 244, 0.7);
+    border: 1px solid rgba(211, 197, 188, 0.5);
+    border-radius: 15px;
+    padding: 30px !important;
+    box-shadow: none;
 }
 
-.custom-form:hover {
-    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.18); /* Enhanced shadow on hover */
-    transform: translateY(-2px); /* Slight lift on hover */
-}
-
-/* Input Fields */
-.form-control, .form-select, .form-control:focus, .form-select:focus {
-    border-radius: 12px; /* More rounded input fields */
-    border: 1px solid #c3b0d4; /* Softer lavender border color */
-    padding: 14px 20px; /* More padding */
-    transition: all 0.3s ease;
-    box-shadow: inset 1px 1px 3px rgba(0, 0, 0, 0.03); /* Subtle inner shadow */
+/* 5. Input Fields */
+.form-control, .form-select {
+    border-radius: 10px;
+    border: 1px solid #D3C5BC; /* Warm taupe border */
+    padding: 12px 18px;
+    background-color: #fff;
+    transition: all 0.2s ease;
+    color: #4E423D;
 }
 
 .form-control:focus, .form-select:focus {
-    border-color: #8a2be2; /* Blue violet focus border */
-    box-shadow: 0 0 0 0.3rem rgba(138, 43, 226, 0.4); /* Stronger focus glow */
-    background-color: #ffffff; /* Whiter on focus */
+    border-color: #A2706B; /* Terracotta focus */
+    box-shadow: 0 0 0 0.25rem rgba(162, 112, 107, 0.2);
 }
 
-.form-text {
-    font-size: 0.85em; /* Slightly larger hint text */
-    color: #777;
-    margin-top: 8px;
-}
-
-/* Custom Buttons (General styling for all custom buttons) */
+/* 6. Custom Buttons */
 .custom-btn {
-    border-radius: 12px; /* Rounded buttons */
-    font-weight: 700; /* Bolder text */
-    padding: 14px 30px; /* More padding */
+    border-radius: 10px;
+    font-weight: 600;
+    padding: 12px 28px;
     transition: all 0.3s ease;
-    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15); /* Standard button shadow */
-    text-transform: uppercase; /* Uppercase text for buttons */
-    letter-spacing: 0.8px; /* More letter spacing */
-    min-width: 180px; /* Ensure buttons have a consistent width */
+    border: none;
+    letter-spacing: 0.5px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
 
 .custom-btn:hover {
-    transform: translateY(-4px); /* More pronounced lift on hover */
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.25); /* Stronger shadow on hover */
+    transform: translateY(-3px);
+    box-shadow: 0 7px 25px rgba(0,0,0,0.15);
 }
 
-/* Specific Button Colors & Hover Effects */
 .btn-primary {
-    background: linear-gradient(45deg, #8a2be2, #6a5acd); /* Blue Violet to Medium Slate Blue */
-    border: none;
+    background-image: linear-gradient(to right, #C89F9C, #A2706B 50%, #D4A39A 100%);
+    background-size: 200% auto;
+    color: white;
+    transition: 0.5s;
 }
-.btn-primary:hover { background: linear-gradient(45deg, #6a5acd, #8a2be2); }
+.btn-primary:hover {
+    background-position: right center;
+    color: #fff;
+}
 
 .btn-success {
-    background: linear-gradient(45deg, #4682b4, #366792); /* Steel Blue */
-    border: none;
+    background-color: #A2706B;
+    color: white;
 }
-.btn-success:hover { background: linear-gradient(45deg, #366792, #4682b4); }
-
-.btn-info {
-    background: linear-gradient(45deg, #6a5acd, #483d8b); /* Slate Blue */
-    border: none;
+.btn-success:hover {
+    background-color: #8C6F69;
 }
-.btn-info:hover { background: linear-gradient(45deg, #483d8b, #6a5acd); }
-
-.btn-danger {
-    background: linear-gradient(45deg, #dc3545, #c82333); /* Red (kept for danger) */
-    border: none;
-}
-.btn-danger:hover { background: linear-gradient(45deg, #c82333, #dc3545); }
 
 .btn-outline-secondary {
-    border: 2px solid #8a2be2; /* Blue violet outline */
-    color: #8a2be2;
+    border: 2px solid #C89F9C;
+    color: #A2706B;
     background-color: transparent;
-    box-shadow: none; /* Remove default shadow for outline buttons */
+    box-shadow: none;
 }
 .btn-outline-secondary:hover {
-    background-color: #8a2be2;
+    background-color: #C89F9C;
     color: #fff;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
 }
 
-.link-btn {
-    color: #6a5acd; /* Medium slate blue for links */
-    font-weight: 600;
-    text-decoration: none;
-    transition: color 0.2s ease, text-decoration 0.2s ease;
-    padding: 8px 0; /* Add some padding for better clickability */
-}
-
-.link-btn:hover {
-    color: #4b0082; /* Deep purple on hover */
-    text-decoration: underline;
-}
-
-/* Generated Content Box */
+/* 7. Generated Content & My Courses */
 .generated-content-box {
-    border: 1px solid #e9ecef !important;
-    border-radius: 18px; /* Consistent rounded corners */
-    min-height: 250px; /* More height */
-    overflow-x: auto; /* Allow horizontal scrolling for wide content */
-    background-color: #ffffff; /* Pure white background for content */
-    box-shadow: inset 0 3px 8px rgba(0,0,0,0.05); /* More prominent inner shadow */
-    padding: 35px !important;
+    background-color: #fff;
+    border: 1px solid #EAE2DD;
+    border-radius: 15px;
+    padding: 30px !important;
 }
 
-#generatedContent h5 {
-    color: #4b0082; /* Deep purple for module titles */
-    font-weight: 700;
-    margin-top: 2rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid #c3b0d4; /* Lavender border */
-    font-size: 1.5em;
-    letter-spacing: -0.5px;
-}
-
-#generatedContent p {
-    line-height: 1.8;
-    color: #444;
-    font-size: 1em;
-}
-
-#generatedContent small {
-    color: #666;
-    font-size: 0.9em;
-}
-
-#generatedContent ul {
-    padding-left: 2rem; /* More padding for lists */
-    margin-top: 1rem;
-}
-
-#generatedContent ul li {
-    margin-bottom: 0.5rem;
-    color: #4a4a4a;
-    font-size: 0.95em;
-}
-
-#generatedContent ul li i {
-    font-size: 1.2em;
-    vertical-align: middle;
-    margin-right: 10px;
-    color: #4682b4; /* Steel blue for checkmarks/icons */
-}
-
-/* Resource Links in Generated Content */
-#generatedContent ul.list-unstyled a {
-    color: #6a5acd; /* Medium slate blue for links */
-    text-decoration: none;
+#generatedContent h5, .list-group-item h5 {
+    color: #6B5B55;
     font-weight: 600;
-    transition: color 0.2s ease;
 }
 
-#generatedContent ul.list-unstyled a:hover {
-    color: #4b0082; /* Deep purple on hover */
-    text-decoration: underline;
-}
-
-
-/* User Status Display */
-.user-status {
-    font-size: 1.1em;
-    color: #555;
-    font-weight: 500;
-    background-color: #e6e6fa; /* Lavender background for status */
-    padding: 10px 18px;
-    border-radius: 12px;
-    display: inline-flex;
-    align-items: center;
-    box-shadow: 0 3px 8px rgba(0,0,0,0.08);
-}
-
-.logout-btn {
-    font-size: 0.85em;
-    padding: 6px 12px;
-    border-radius: 8px;
-}
-
-/* Loading Spinner */
-#loadingSpinner p {
-    color: #6a5acd; /* Slate blue for loading text */
-    font-weight: 700;
-    font-size: 1.2em;
-}
-
-/* Auth Navigation Buttons */
-.auth-nav .custom-btn {
-    min-width: 150px; /* Ensure buttons have a consistent width */
-}
-
-/* Responsive Adjustments */
-@media (max-width: 768px) {
-    .container {
-        margin: 15px;
-        padding: 30px;
-        border-radius: 20px;
-    }
-    .app-title {
-        font-size: 2.2em;
-    }
-    .app-slogan {
-        font-size: 1.1em;
-    }
-    .custom-form {
-        padding: 25px !important;
-    }
-    .custom-btn {
-        font-size: 0.95em;
-        padding: 12px 20px;
-    }
-    .generated-content-box {
-        padding: 25px !important;
-    }
-    #generatedContent h5 {
-        font-size: 1.3em;
-    }
-}
-
-@media (max-width: 576px) {
-    .container {
-        margin: 10px;
-        padding: 20px;
-        border-radius: 15px;
-    }
-    .app-title {
-        font-size: 1.6em;
-    }
-    .app-slogan {
-        font-size: 1em;
-        margin-bottom: 25px;
-    }
-    .custom-form {
-        padding: 20px !important;
-    }
-    .custom-btn {
-        font-size: 0.85em;
-        padding: 10px 18px;
-    }
-    .generated-content-box {
-        padding: 20px !important;
-    }
-    #generatedContent h5 {
-        font-size: 1.1em;
-    }
-    .user-status {
-        font-size: 1em;
-        padding: 6px 12px;
-    }
-    .logout-btn {
-        font-size: 0.75em;
-        padding: 5px 10px;
-    }
-    .auth-nav .custom-btn {
-        min-width: unset; /* Allow buttons to shrink on very small screens */
-        width: 100%;
-        margin-bottom: 10px;
-    }
-    .auth-nav .custom-btn:last-child {
-        margin-bottom: 0;
-    }
-}/* --- Quiz Modal Styles --- */
+/* 8. Modal Styles */
 .modal-content {
-    border-radius: 20px;
+    border-radius: 15px;
     border: none;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
 }
 
 .modal-header {
-    background-color: #f7f5ff;
-    color: #4b0082;
-    border-bottom: 1px solid #e0d8f0;
-    border-top-left-radius: 20px;
-    border-top-right-radius: 20px;
+    background-color: rgba(249, 246, 244, 0.8);
+    color: #6B5B55;
+    border-bottom: 1px solid #EAE2DD;
 }
 
-.modal-header .modal-title {
-    font-weight: 700;
-}
-
-#quizForm .quiz-question-container {
-    margin-bottom: 1.75rem;
-    padding: 1.25rem;
-    background-color: #f8f9fa;
-    border-radius: 12px;
-    border: 1px solid #e9ecef;
-}
-
-#quizForm .quiz-question-container p {
-    font-weight: 600;
-    margin-bottom: 1rem;
-}
-
-#quizForm .form-check {
-    margin-bottom: 0.5rem;
-}
-
-#quizForm .form-check-label {
-    margin-left: 0.5rem;
-}
+/* --- Z-index Fix --- */
+.modal-backdrop { z-index: 1040; }
+.modal { z-index: 1050; }
