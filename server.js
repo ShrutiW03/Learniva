@@ -116,12 +116,11 @@ app.post('/api/course/:courseId/quiz', async (req, res) => {
     }
 });
 
-// ROUTE 3: Submit the post-course quiz (MODIFIED)
+// ROUTE 3: Submit the post-course quiz
 app.post('/api/course/:courseId/submit-quiz', async (req, res) => {
     const { courseId } = req.params;
-    // --- FIX: Use 'courseTopic' to match the frontend and provide a default value ---
     const { userId, answers, courseTopic, difficulty, quizType } = req.body;
-    const topic = courseTopic || 'General Quiz'; // Ensure 'topic' is never undefined
+    const topic = courseTopic || 'General Quiz';
 
     const cacheKey = `${userId}_${courseId}`;
     const correctAnswers = quizAnswersCache[cacheKey];
@@ -194,6 +193,58 @@ app.get('/my-courses', async (req, res) => {
         res.status(500).json({ status: 'error', message: `Failed to fetch courses: ${error.message}` });
     }
 });
+
+// --- NEW ROUTE A: Get course progress ---
+app.get('/api/course/:courseId/progress', async (req, res) => {
+    const { courseId } = req.params;
+    const { userId } = req.query;
+
+    if (!userId) {
+        return res.status(400).json({ status: 'error', message: 'User ID is required.' });
+    }
+
+    try {
+        const [rows] = await pool.execute(
+            'SELECT completed_resources FROM user_course_progress WHERE user_id = ? AND course_id = ?',
+            [userId, courseId]
+        );
+        if (rows.length > 0) {
+            res.json({ status: 'success', completed_resources: rows[0].completed_resources || [] });
+        } else {
+            res.json({ status: 'success', completed_resources: [] }); // No progress found, return empty array
+        }
+    } catch (error) {
+        console.error("Error fetching course progress:", error);
+        res.status(500).json({ status: 'error', message: 'Failed to fetch course progress.' });
+    }
+});
+
+// --- NEW ROUTE B: Update course progress ---
+app.post('/api/course/:courseId/progress', async (req, res) => {
+    const { courseId } = req.params;
+    const { userId, completed_resources } = req.body;
+
+    if (!userId || !Array.isArray(completed_resources)) {
+        return res.status(400).json({ status: 'error', message: 'Invalid data provided.' });
+    }
+    
+    const completedResourcesJson = JSON.stringify(completed_resources);
+
+    try {
+        // This is an "UPSERT" query: It inserts a new row if one doesn't exist for the user/course combo,
+        // or it updates the existing row if it does exist.
+        await pool.execute(
+            `INSERT INTO user_course_progress (user_id, course_id, completed_resources) VALUES (?, ?, ?)
+             ON DUPLICATE KEY UPDATE completed_resources = ?`,
+            [userId, courseId, completedResourcesJson, completedResourcesJson]
+        );
+        res.json({ status: 'success', message: 'Progress saved.' });
+    } catch (error) {
+        console.error("Error saving course progress:", error);
+        res.status(500).json({ status: 'error', message: 'Failed to save progress.' });
+    }
+});
+
 
 // ROUTE 6: User Signup
 app.post('/signup', async (req, res) => {
