@@ -72,13 +72,42 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // --- MODIFIED FUNCTION TO DISPLAY VARIOUS RESOURCE TYPES ---
     const displayGeneratedCourse = (generatedCourse) => {
         let htmlContent = `<h3 class="text-center mb-4">${generatedCourse.title || 'Generated Course'}</h3>`;
+        
+        const getIconForType = (type) => {
+            switch (type) {
+                case 'YouTube Video': return '<i class="bi bi-play-circle-fill me-2" style="color: #c4302b;"></i>';
+                case 'Official Documentation': return '<i class="bi bi-file-code-fill me-2" style="color: #6e5494;"></i>';
+                case 'Article': return '<i class="bi bi-newspaper me-2" style="color: #007bff;"></i>';
+                case 'Interactive Tutorial': return '<i class="bi bi-joystick me-2" style="color: #28a745;"></i>';
+                default: return '<i class="bi bi-link-45deg me-2"></i>';
+            }
+        };
+
         htmlContent += (generatedCourse.modules || []).map((module, index) => {
             const outcomesHtml = (module.learningOutcomes || []).map(o => `<li><i class="bi bi-check-circle-fill text-success me-2"></i>${o}</li>`).join('');
-            const resourcesHtml = (module.resources || []).map(r => `<li><i class="bi bi-play-circle-fill text-danger me-2"></i><a href="${r.url}" target="_blank">${r.title}</a></li>`).join('');
-            return `<div class="list-group-item mb-3"><h5>Module ${index + 1}: ${module.name || 'Untitled'}</h5><p>${module.description || ''}</p><div class="mt-2"><strong>Learning Outcomes:</strong><ul class="list-unstyled ms-3">${outcomesHtml}</ul></div><div class="mt-2"><strong>Recommended Resources:</strong><ul class="list-unstyled ms-3">${resourcesHtml}</ul></div></div>`;
+            
+            const resourcesHtml = (module.resources || []).map(r => 
+                `<li>${getIconForType(r.type)}<a href="${r.url}" target="_blank">${r.title}</a> <small class="text-muted">(${r.type})</small></li>`
+            ).join('');
+
+            return `
+                <div class="list-group-item mb-3">
+                    <h5>Module ${index + 1}: ${module.name || 'Untitled'}</h5>
+                    <p>${module.description || ''}</p>
+                    <div class="mt-2">
+                        <strong>Learning Outcomes:</strong>
+                        <ul class="list-unstyled ms-3">${outcomesHtml}</ul>
+                    </div>
+                    <div class="mt-2">
+                        <strong>Recommended Resources:</strong>
+                        <ul class="list-unstyled ms-3">${resourcesHtml}</ul>
+                    </div>
+                </div>`;
         }).join('');
+
         generatedContent.innerHTML = htmlContent;
     };
     
@@ -150,7 +179,17 @@ document.addEventListener('DOMContentLoaded', () => {
     saveCourseBtn.addEventListener('click', async () => {
         if (!lastGeneratedCourseData) { alert('No course generated yet!'); return; }
         try {
-            const response = await fetch('/save-course', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...lastGeneratedCourseData.receivedData, generatedCourse: lastGeneratedCourseData.generatedCourse, userId: currentUserId }) });
+            // Note the structure change here to match the updated server.js
+            const payload = {
+                receivedData: lastGeneratedCourseData.receivedData,
+                generatedCourse: lastGeneratedCourseData.generatedCourse,
+                userId: currentUserId
+            };
+            const response = await fetch('/save-course', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify(payload) 
+            });
             const result = await response.json();
             if (!response.ok) throw new Error(result.message);
             alert(result.message);
