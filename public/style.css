@@ -1,152 +1,207 @@
-/* --- Learniva: Chic Nude & Rose Gold Theme --- */
+/* --- Learniva: Interactive Galaxy Theme --- */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Orbitron:wght@700&display=swap');
 
-/* 1. General Body and Font Styling */
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+/* 1. CSS Variables for the Galaxy Palette */
+:root {
+    --bg-deep-space: #0f0c29;
+    --bg-nebula-start: #24243e;
+    --bg-nebula-end: #302b63;
+    --accent-magenta: #ff00cc;
+    --accent-purple: #9c27b0;
+    --text-primary: #EAE6FF;
+    --text-secondary: #c7c1e0;
+    --glass-bg: rgba(22, 18, 53, 0.5);
+    --glass-border: rgba(144, 115, 255, 0.3);
 
+    --font-heading: 'Orbitron', sans-serif;
+    --font-body: 'Poppins', sans-serif;
+}
+
+/* 2. Animated Gradient Background */
 body {
-    font-family: 'Poppins', sans-serif;
-    background: linear-gradient(135deg, #f5e9e2 0%, #e6d4c9 100%);
-    color: #4E423D; /* Deep warm brown for text */
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    font-family: var(--font-body);
+    color: var(--text-primary);
+    background: linear-gradient(-45deg, var(--bg-deep-space), var(--bg-nebula-start), var(--bg-nebula-end), var(--bg-deep-space));
+    background-size: 400% 400%;
+    animation: gradient-animation 15s ease infinite;
     min-height: 100vh;
     padding: 20px;
 }
 
-/* 2. Main Container (Glassmorphism Effect) */
-.container {
-    max-width: 850px;
-    background: rgba(255, 255, 255, 0.4);
-    border-radius: 20px;
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.15);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    padding: 40px;
-    transition: all 0.3s ease-in-out;
-    position: relative;
-    z-index: 1;
+@keyframes gradient-animation {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
 }
 
-/* 3. Headings and Slogans */
-.app-title {
-    color: #6B5B55; /* Richer, warmer brown */
+/* 3. Typography & Main Layout */
+.app-title, .output-title {
+    font-family: var(--font-heading);
     font-weight: 700;
-    font-size: 2.5em;
-    letter-spacing: -1px;
+    font-size: 2.8rem;
+    color: var(--text-primary);
+    text-shadow: 0 0 10px var(--accent-purple);
 }
 
 .app-slogan {
-    color: #8C7B75; /* Softer brown */
-    font-weight: 400;
-    margin-bottom: 40px;
-    font-size: 1.1em;
+    color: var(--text-secondary);
+    font-size: 1.2rem;
 }
 
-.output-title {
-    color: #6B5B55;
+h5 {
+    color: var(--accent-magenta);
+    font-family: var(--font-body);
     font-weight: 600;
 }
 
-/* 4. Custom Form Styling */
-.custom-form {
-    background-color: rgba(249, 246, 244, 0.7);
-    border: 1px solid rgba(211, 197, 188, 0.5);
-    border-radius: 15px;
+/* 4. Glassmorphism UI Elements */
+.custom-form, .generated-content-box {
+    background: var(--glass-bg);
+    border-radius: 16px;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
     padding: 30px !important;
-    box-shadow: none;
+    transition: all 0.3s ease;
 }
 
-/* 5. Input Fields */
+.custom-form:hover, .generated-content-box:hover {
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(144, 115, 255, 0.5);
+}
+
+/* 5. Interactive Input Fields */
 .form-control, .form-select {
-    border-radius: 10px;
-    border: 1px solid #D3C5BC; /* Warm taupe border */
+    background-color: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--glass-border);
+    color: var(--text-primary);
+    border-radius: 8px;
     padding: 12px 18px;
-    background-color: #fff;
-    transition: all 0.2s ease;
-    color: #4E423D;
+}
+
+.form-control::placeholder {
+    color: var(--text-secondary);
 }
 
 .form-control:focus, .form-select:focus {
-    border-color: #A2706B; /* Terracotta focus */
-    box-shadow: 0 0 0 0.25rem rgba(162, 112, 107, 0.2);
+    background-color: rgba(0, 0, 0, 0.3);
+    color: var(--text-primary);
+    border-color: var(--accent-magenta);
+    box-shadow: 0 0 0 0.25rem rgba(255, 0, 204, 0.2);
 }
 
-/* 6. Custom Buttons */
+/* 6. Glowing, Gradient Buttons */
 .custom-btn {
-    border-radius: 10px;
+    border: none;
+    border-radius: 8px;
     font-weight: 600;
     padding: 12px 28px;
     transition: all 0.3s ease;
-    border: none;
-    letter-spacing: 0.5px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-}
-
-.custom-btn:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 7px 25px rgba(0,0,0,0.15);
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 .btn-primary {
-    background-image: linear-gradient(to right, #C89F9C, #A2706B 50%, #D4A39A 100%);
+    background-image: linear-gradient(to right, var(--accent-purple), var(--accent-magenta));
     background-size: 200% auto;
     color: white;
-    transition: 0.5s;
 }
 .btn-primary:hover {
     background-position: right center;
-    color: #fff;
-}
-
-.btn-success {
-    background-color: #A2706B;
-    color: white;
-}
-.btn-success:hover {
-    background-color: #8C6F69;
+    box-shadow: 0 0 20px var(--accent-magenta);
+    transform: translateY(-2px);
 }
 
 .btn-outline-secondary {
-    border: 2px solid #C89F9C;
-    color: #A2706B;
+    border: 2px solid var(--accent-purple);
+    color: var(--text-primary);
     background-color: transparent;
-    box-shadow: none;
 }
 .btn-outline-secondary:hover {
-    background-color: #C89F9C;
-    color: #fff;
+    background-color: var(--accent-purple);
+    color: white;
+    box-shadow: 0 0 15px var(--accent-purple);
 }
 
-/* 7. Generated Content & My Courses */
-.generated-content-box {
-    background-color: #fff;
-    border: 1px solid #EAE2DD;
-    border-radius: 15px;
-    padding: 30px !important;
+/* 7. Themed Course Content */
+.list-group-item {
+    background-color: transparent !important;
+    border: none !important;
+    border-left: 3px solid var(--accent-purple) !important;
+    padding-left: 1.5rem !important;
 }
 
-#generatedContent h5, .list-group-item h5 {
-    color: #6B5B55;
+a {
+    color: var(--accent-magenta);
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+a:hover {
+    color: var(--text-primary);
+    text-decoration: underline;
+}
+
+.badge.bg-secondary {
+    background-color: var(--accent-purple) !important;
+}
+
+/* 8. Themed Progress Bar & Modals */
+.progress {
+    background-color: rgba(0, 0, 0, 0.3);
+}
+
+.progress-bar.bg-success {
+    background-color: var(--accent-purple) !important;
+    background-image: linear-gradient(to right, var(--accent-purple), var(--accent-magenta));
+}
+
+.modal-content {
+    background: var(--bg-nebula-end);
+    border-radius: 16px;
+    border: 1px solid var(--glass-border);
+}
+.modal-header {
+    border-bottom: 1px solid var(--glass-border);
+}
+/* Add this to the end of your style.css file */
+
+/* Fix for form labels */
+.form-label {
+    color: var(--text-secondary);
     font-weight: 600;
 }
 
-/* 8. Modal Styles */
-.modal-content {
-    border-radius: 15px;
-    border: none;
-    background: rgba(255, 255, 255, 0.8);
-    backdrop-filter: blur(15px);
-    -webkit-backdrop-filter: blur(15px);
+/* Improve readability of paragraph text */
+.list-group-item p, .text-muted {
+    color: var(--text-secondary) !important;
 }
 
-.modal-header {
-    background-color: rgba(249, 246, 244, 0.8);
-    color: #6B5B55;
-    border-bottom: 1px solid #EAE2DD;
+/* Add this to the end of your style.css file */
+
+/* Fix for form labels and titles */
+.form-label {
+    color: var(--text-secondary);
+    font-weight: 600;
 }
 
-/* --- Z-index Fix --- */
-.modal-backdrop { z-index: 1040; }
-.modal { z-index: 1050; }
+#loginFormSection h2, #signupFormSection h2 {
+    color: var(--text-secondary);
+}
+
+/* Improve readability of paragraph text */
+.list-group-item p, .text-muted, .list-group-item li {
+    color: var(--text-secondary) !important;
+}
+
+/* Fix for the green login button */
+.btn-success {
+    background-image: linear-gradient(to right, var(--accent-purple), var(--accent-magenta));
+    background-size: 200% auto;
+    color: white;
+}
+.btn-success:hover {
+    background-position: right center;
+    box-shadow: 0 0 20px var(--accent-magenta);
+    transform: translateY(-2px);
+}

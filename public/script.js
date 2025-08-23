@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // --- Element References (with new back buttons) ---
+    // --- Element References ---
     const courseForm = document.getElementById('courseForm');
     const loadingSpinner = document.getElementById('loadingSpinner');
     const courseOutput = document.getElementById('courseOutput');
@@ -36,18 +36,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const postCourseQuizTopic = document.getElementById('postCourseQuizTopic');
     const quizLoadingSpinner = document.getElementById('quizLoadingSpinner');
 
-    // --- State Variables (with new navigation state) ---
+    // --- State Variables ---
     let lastGeneratedCourseData = null;
     let isLoggedIn = false;
     let currentUsername = '';
     let currentUserId = null;
     let activeQuizData = {};
     let activeCourseId = null;
-    let previousSection = null; // NEW: To remember where the user came from
+    let previousSection = null;
 
     // --- Helper Functions ---
     const showSection = (section, fromSection = null) => {
-        // NEW: Set the previous section for smart navigation
         if (fromSection) {
             previousSection = fromSection;
         }
@@ -67,9 +66,17 @@ document.addEventListener('DOMContentLoaded', () => {
         event.preventDefault();
         if (!isLoggedIn) { alert('Please log in first.'); return; }
         showLoading();
-        // NEW: Remember we came from the generator form
         previousSection = courseForm;
-        const formData = { topic: document.getElementById('courseTopic').value, duration: document.getElementById('courseDuration').value, skillLevel: document.getElementById('skillLevel').value, learningGoals: document.getElementById('learningGoals').value };
+        
+        const formData = { 
+            topic: document.getElementById('courseTopic').value, 
+            skillLevel: document.getElementById('skillLevel').value,
+            learningStyle: document.getElementById('learningStyle').value,
+            hoursPerWeek: document.getElementById('hoursPerWeek').value,
+            learningGoals: document.getElementById('learningGoals').value,
+            existingKnowledge: document.getElementById('existingKnowledge').value
+        };
+
         try {
             const response = await fetch('/api/course/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) });
             const data = await response.json();
@@ -87,29 +94,66 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // --- Display Function ---
     const displayGeneratedCourse = (generatedCourse, courseId = null) => {
         activeCourseId = courseId;
-        let htmlContent = `<h3 class="text-center mb-4">${generatedCourse.title || 'Generated Course'}</h3>`;
+        
+        let htmlContent = `<h3 class="text-center mb-2">${generatedCourse.title || 'Generated Course'}</h3>`;
+        htmlContent += `<p class="text-center text-muted mb-4">Estimated Duration: ${generatedCourse.totalWeeks} weeks</p>`;
+
+        if (generatedCourse.prerequisites && generatedCourse.prerequisites.length > 0) {
+            const prereqsHtml = generatedCourse.prerequisites.map(p => `<li>${p}</li>`).join('');
+            htmlContent += `
+                <div class="mb-4 p-3 bg-light border rounded">
+                    <h5><i class="bi bi-shield-check me-2"></i>Prerequisites</h5>
+                    <ul class="mb-0">${prereqsHtml}</ul>
+                </div>
+            `;
+        }
+
         if (courseId) {
             htmlContent += `<div class="progress mb-4" style="height: 25px; font-size: 1rem;"><div id="courseProgressBar" class="progress-bar bg-success" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div></div>`;
         }
+        
         const getIconForType = (type) => {
             switch (type) {
                 case 'YouTube Video': return '<i class="bi bi-play-circle-fill me-2" style="color: #c4302b;"></i>';
                 case 'Official Documentation': return '<i class="bi bi-file-code-fill me-2" style="color: #6e5494;"></i>';
                 case 'Article': return '<i class="bi bi-newspaper me-2" style="color: #007bff;"></i>';
                 case 'Interactive Tutorial': return '<i class="bi bi-joystick me-2" style="color: #28a745;"></i>';
+                case 'Book Recommendation': return '<i class="bi bi-book-fill me-2" style="color: #fd7e14;"></i>';
                 default: return '<i class="bi bi-link-45deg me-2"></i>';
             }
         };
-        htmlContent += (generatedCourse.modules || []).map((module, index) => {
+
+        htmlContent += (generatedCourse.modules || []).map(module => {
+            const keywordsHtml = (module.keywords || []).map(k => `<span class="badge bg-secondary me-1">${k}</span>`).join('');
             const outcomesHtml = (module.learningOutcomes || []).map(o => `<li><i class="bi bi-check-circle-fill text-success me-2"></i>${o}</li>`).join('');
             const resourcesHtml = (module.resources || []).map(r => {
                 const checkboxHtml = courseId ? `<input class="form-check-input me-2 resource-checkbox" type="checkbox" data-resource-url="${r.url}">` : '';
                 return `<li>${checkboxHtml}${getIconForType(r.type)}<a href="${r.url}" target="_blank">${r.title}</a> <small class="text-muted">(${r.type})</small></li>`;
             }).join('');
-            return `<div class="list-group-item mb-3"><h5>Module ${index + 1}: ${module.name || 'Untitled'}</h5><p>${module.description || ''}</p><div class="mt-2"><strong>Learning Outcomes:</strong><ul class="list-unstyled ms-3">${outcomesHtml}</ul></div><div class="mt-2"><strong>Recommended Resources:</strong><ul class="list-unstyled ms-3">${resourcesHtml}</ul></div></div>`;
+
+            return `
+                <div class="list-group-item mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5>${module.week}: ${module.name || 'Untitled'}</h5>
+                        <small class="text-muted"><i class="bi bi-clock me-1"></i>${module.estimatedHours} hrs</small>
+                    </div>
+                    <p class="mt-2">${module.description || ''}</p>
+                    <div class="mb-2"><strong>Key Concepts:</strong> ${keywordsHtml}</div>
+                    
+                    <div class="mt-3"><strong><i class="bi bi-bullseye me-2"></i>Learning Outcomes:</strong><ul class="list-unstyled ms-3">${outcomesHtml}</ul></div>
+                    
+                    <div class="mt-3 p-3 bg-light border rounded">
+                        <strong><i class="bi bi-tools me-2"></i>Weekly Project:</strong>
+                        <p class="mb-0">${module.projectIdea || 'Practice the concepts learned this week.'}</p>
+                    </div>
+
+                    <div class="mt-3"><strong><i class="bi bi-collection-play me-2"></i>Recommended Resources:</strong><ul class="list-unstyled ms-3">${resourcesHtml}</ul></div>
+                </div>`;
         }).join('');
+
         generatedContent.innerHTML = htmlContent;
         if (courseId) {
             fetchAndApplyProgress(courseId);
@@ -271,14 +315,11 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) { myCoursesList.innerHTML = `<p class="text-danger">Failed to load courses: ${error.message}</p>`; }
     });
 
-    // --- NEW: Smart Back Button Logic ---
     backBtn.addEventListener('click', () => {
         courseOutput.style.display = 'none';
-        // If the previous section was the course form (i.e., a new course was generated)
         if (previousSection === courseForm) {
             courseForm.style.display = 'block';
         } else {
-            // Otherwise, go back to the "My Courses" list
             myCoursesBtn.click();
         }
     });
@@ -296,7 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
         logoutBtn.addEventListener('click', () => { isLoggedIn = false; currentUserId = null; currentUsername = ''; lastGeneratedCourseData = null; courseForm.reset(); courseOutput.style.display = 'none'; showLogin(); });
         signupForm.addEventListener('submit', async (event) => { event.preventDefault(); const username = signupForm.querySelector('#signupUsername').value.trim(); const email = signupForm.querySelector('#signupEmail').value.trim(); const password = signupForm.querySelector('#signupPassword').value.trim(); if (!username || !password) { alert('Username and password required.'); return; } try { const response = await fetch('/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, email, password }) }); const result = await response.json(); alert(result.message); if (response.ok) { signupForm.reset(); showLogin(); } } catch (error) { alert(`Signup failed: ${error.message}.`); } });
         loginForm.addEventListener('submit', async (event) => { event.preventDefault(); const username = loginForm.querySelector('#loginUsername').value.trim(); const password = loginForm.querySelector('#loginPassword').value.trim(); if (!username || !password) { alert('Username and password required.'); return; } try { const response = await fetch('/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) }); const result = await response.json(); if (!response.ok) throw new Error(result.message); alert(result.message); loginForm.reset(); isLoggedIn = true; currentUsername = result.username; currentUserId = result.userId; showMainApp(currentUsername); } catch (error) { alert(`Login failed: ${error.message}.`); } });
-        backToGeneratorBtn.addEventListener('click', () => showMainApp(currentUsername)); // Corrected this line
+        backToGeneratorBtn.addEventListener('click', () => showMainApp(currentUsername));
     };
     
     setupAuthListeners();

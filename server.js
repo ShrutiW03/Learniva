@@ -40,18 +40,53 @@ app.get('/', (req, res) => {
 // --- CORE API ROUTES ---
 // =================================================================
 
-// ROUTE 1: Generate a course
+// ROUTE 1: Generate a course (with advanced personalization)
 app.post('/api/course/generate', async (req, res) => {
-    const { topic, duration, learningGoals, skillLevel } = req.body;
+    const { topic, skillLevel, learningStyle, hoursPerWeek, learningGoals, existingKnowledge } = req.body;
+    
     const sanitizedGoals = learningGoals.replace(/"/g, '\\"').replace(/\n/g, ' ');
+    const sanitizedKnowledge = existingKnowledge.replace(/"/g, '\\"').replace(/\n/g, ' ');
 
     const coursePrompt = `
-      You are an expert curriculum designer. Create a detailed course outline for a user with a skill level of "${skillLevel}".
-      The topic is "${topic}" for a duration of "${duration} weeks" with these goals: "${sanitizedGoals}".
-      Generate a strict JSON object with a "title" (string) and a "modules" (array).
-      Each object in the "modules" array must have: "name", "description", "learningOutcomes" (array of strings), and "resources" (array of 3 to 5 objects).
-      Each object in the "resources" array must have: "title", "url", and "type" (one of: "YouTube Video", "Official Documentation", "Article", "Interactive Tutorial").
-      For resources, find relevant, highly-regarded content. For YouTube videos, prioritize high view counts.
+      You are an expert curriculum designer creating a personalized learning plan.
+      
+      **User Profile:**
+      - **Topic:** "${topic}"
+      - **Current Skill Level:** "${skillLevel}"
+      - **Learning Goals:** "${sanitizedGoals}"
+      - **Preferred Learning Style:** "${learningStyle}"
+      - **Time Commitment:** "${hoursPerWeek}" hours per week
+      - **Existing Knowledge:** "${sanitizedKnowledge}"
+
+      **Your Task:**
+      Generate a comprehensive, week-by-week course curriculum based on the user's profile. The total number of weeks should be based on the topic complexity and the user's time commitment.
+      
+      **Output Format (Strict JSON):**
+      Your entire response must be a single JSON object.
+
+      {
+        "title": "A compelling, catchy title for the course",
+        "totalWeeks": "Calculated total weeks for the course",
+        "prerequisites": ["A list of 2-3 essential skills the user should have before starting"],
+        "modules": [
+          {
+            "week": "Week number (e.g., 'Week 1')",
+            "name": "Title of the module for this week",
+            "description": "A summary of what this module covers and why it's important",
+            "keywords": ["List", "of", "key concepts"],
+            "projectIdea": "A small, practical project for the user to build this week to apply their knowledge.",
+            "estimatedHours": "An estimated number of hours for this module",
+            "learningOutcomes": ["Outcome 1", "Outcome 2"],
+            "resources": [
+              {
+                "title": "Resource title",
+                "url": "https://... valid URL",
+                "type": "One of: 'YouTube Video', 'Official Documentation', 'Article', 'Interactive Tutorial', 'Book Recommendation'"
+              }
+            ]
+          }
+        ]
+      }
     `;
 
     try {
@@ -72,7 +107,7 @@ app.post('/api/course/generate', async (req, res) => {
             status: 'success',
             message: 'Course and resources generated successfully!',
             generatedCourse: generatedCourse,
-            receivedData: { topic, duration, skillLevel, learningGoals }
+            receivedData: { topic, skillLevel, learningStyle, hoursPerWeek, learningGoals, existingKnowledge }
         });
     } catch (error) {
         console.error('Error in course generation workflow:', error);
@@ -146,28 +181,31 @@ app.post('/api/course/:courseId/submit-quiz', async (req, res) => {
 
 // ROUTE 4: Save a generated course
 app.post('/save-course', async (req, res) => {
-  const { receivedData, generatedCourse, userId } = req.body;
-  const { topic, duration, skillLevel, learningGoals } = receivedData;
-  
-  if (!generatedCourse || !topic || !duration || !skillLevel || !learningGoals || !userId) {
-    return res.status(400).json({ status: 'error', message: 'Missing required course data.' });
-  }
+    const { receivedData, generatedCourse, userId } = req.body;
+    // Use all available data, provide defaults
+    const { topic, skillLevel, learningGoals } = receivedData;
+    const duration = receivedData.duration || generatedCourse.totalWeeks;
 
-  const generatedContentJson = JSON.stringify(generatedCourse);
+    if (!generatedCourse || !topic || !skillLevel || !learningGoals || !userId) {
+        return res.status(400).json({ status: 'error', message: 'Missing required course data.' });
+    }
 
-  try {
-    const [result] = await pool.execute(
-      `INSERT INTO courses (topic, duration, skill_level, learning_goals, generated_content, user_id) VALUES (?, ?, ?, ?, ?, ?)`,
-      [topic, duration, skillLevel, learningGoals, generatedContentJson, userId]
-    );
-    res.json({ status: 'success', message: 'Course saved successfully!', courseId: result.insertId });
-  } catch (error) {
-    console.error("Error saving course:", error);
-    res.status(500).json({ status: 'error', message: `Failed to save course: ${error.message}` });
-  }
+    const generatedContentJson = JSON.stringify(generatedCourse);
+
+    try {
+        const [result] = await pool.execute(
+            `INSERT INTO courses (topic, duration, skill_level, learning_goals, generated_content, user_id) VALUES (?, ?, ?, ?, ?, ?)`,
+            [topic, duration, skillLevel, learningGoals, generatedContentJson, userId]
+        );
+        res.json({ status: 'success', message: 'Course saved successfully!', courseId: result.insertId });
+    } catch (error) {
+        console.error("Error saving course:", error);
+        res.status(500).json({ status: 'error', message: `Failed to save course: ${error.message}` });
+    }
 });
 
-// ROUTE 5: Get all courses for a user (MODIFIED)
+
+// ROUTE 5: Get all courses for a user
 app.get('/my-courses', async (req, res) => {
     const userId = req.query.userId;
     if (!userId) {
@@ -186,16 +224,12 @@ app.get('/my-courses', async (req, res) => {
         const parsedCourses = courses.map(course => {
             try {
                 const parsedContent = JSON.parse(course.generated_content);
-
-                // --- FIX: Check if completed_resources is a string before parsing ---
                 let completedResources = [];
                 if (course.completed_resources) {
-                    // If it's a string, parse it. If it's already an object (from the DB driver), use it directly.
                     completedResources = typeof course.completed_resources === 'string' 
                         ? JSON.parse(course.completed_resources) 
                         : course.completed_resources;
                 }
-
                 return {
                     ...course, 
                     generated_content: parsedContent,
