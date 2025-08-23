@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // --- Element References ---
+    // --- Element References (with new back buttons) ---
     const courseForm = document.getElementById('courseForm');
     const loadingSpinner = document.getElementById('loadingSpinner');
     const courseOutput = document.getElementById('courseOutput');
@@ -24,8 +24,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const loggedInUsername = document.getElementById('loggedInUsername');
     const logoutBtn = document.getElementById('logoutBtn');
     const myCoursesBtn = document.getElementById('myCoursesBtn');
-    const backToMainFromMyCourses = document.getElementById('backToMainFromMyCourses');
-    const backToFormBtn = document.getElementById('backToFormBtn');
+    const backToGeneratorBtn = document.getElementById('backToGeneratorBtn');
+    const backBtn = document.getElementById('backBtn');
     
     // --- Quiz Modals ---
     const quizOptionsModal = new bootstrap.Modal(document.getElementById('quizOptionsModal'));
@@ -36,16 +36,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const postCourseQuizTopic = document.getElementById('postCourseQuizTopic');
     const quizLoadingSpinner = document.getElementById('quizLoadingSpinner');
 
-    // --- State Variables ---
+    // --- State Variables (with new navigation state) ---
     let lastGeneratedCourseData = null;
     let isLoggedIn = false;
     let currentUsername = '';
     let currentUserId = null;
     let activeQuizData = {};
-    let activeCourseId = null; // NEW: To keep track of the currently viewed course for progress
+    let activeCourseId = null;
+    let previousSection = null; // NEW: To remember where the user came from
 
     // --- Helper Functions ---
-    const showSection = (section) => { [mainAppSection, signupFormSection, loginFormSection, myCoursesSection, courseOutput].forEach(s => s.style.display = 'none'); [authNav, loggedInStatus].forEach(el => el.style.display = 'none'); if (section) section.style.display = 'block'; };
+    const showSection = (section, fromSection = null) => {
+        // NEW: Set the previous section for smart navigation
+        if (fromSection) {
+            previousSection = fromSection;
+        }
+        [mainAppSection, signupFormSection, loginFormSection, myCoursesSection, courseOutput].forEach(s => s.style.display = 'none');
+        [authNav, loggedInStatus].forEach(el => el.style.display = 'none');
+        if (section) section.style.display = 'block';
+    };
+
     const showMainApp = (username) => { showSection(mainAppSection); courseForm.style.display = 'block'; loggedInStatus.style.display = 'flex'; loggedInUsername.textContent = username; mainHeader.style.display = 'none'; };
     const showLogin = () => { showSection(loginFormSection); authNav.style.display = 'block'; mainHeader.style.display = 'block'; };
     const showSignup = () => { showSection(signupFormSection); authNav.style.display = 'block'; };
@@ -57,19 +67,17 @@ document.addEventListener('DOMContentLoaded', () => {
         event.preventDefault();
         if (!isLoggedIn) { alert('Please log in first.'); return; }
         showLoading();
+        // NEW: Remember we came from the generator form
+        previousSection = courseForm;
         const formData = { topic: document.getElementById('courseTopic').value, duration: document.getElementById('courseDuration').value, skillLevel: document.getElementById('skillLevel').value, learningGoals: document.getElementById('learningGoals').value };
         try {
             const response = await fetch('/api/course/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) });
             const data = await response.json();
             if (!response.ok) throw new Error(data.message || 'Failed to generate course.');
             lastGeneratedCourseData = data;
-            
-            // A newly generated course isn't saved yet, so it has no ID. Progress can't be saved.
             activeCourseId = null; 
-            saveCourseBtn.style.display = 'block'; // Make sure save button is visible
-            
+            saveCourseBtn.style.display = 'block';
             displayGeneratedCourse(data.generatedCourse);
-            
             courseForm.style.display = 'none';
             loadingSpinner.style.display = 'none';
             courseOutput.style.display = 'block';
@@ -80,19 +88,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const displayGeneratedCourse = (generatedCourse, courseId = null) => {
-        activeCourseId = courseId; // Set the active course ID for progress tracking
-
+        activeCourseId = courseId;
         let htmlContent = `<h3 class="text-center mb-4">${generatedCourse.title || 'Generated Course'}</h3>`;
-        
-        // NEW: Add a progress bar, but only if the course is saved (has an ID)
         if (courseId) {
-            htmlContent += `
-                <div class="progress mb-4" style="height: 25px; font-size: 1rem;">
-                    <div id="courseProgressBar" class="progress-bar bg-success" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
-                </div>
-            `;
+            htmlContent += `<div class="progress mb-4" style="height: 25px; font-size: 1rem;"><div id="courseProgressBar" class="progress-bar bg-success" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div></div>`;
         }
-
         const getIconForType = (type) => {
             switch (type) {
                 case 'YouTube Video': return '<i class="bi bi-play-circle-fill me-2" style="color: #c4302b;"></i>';
@@ -102,36 +102,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 default: return '<i class="bi bi-link-45deg me-2"></i>';
             }
         };
-
         htmlContent += (generatedCourse.modules || []).map((module, index) => {
             const outcomesHtml = (module.learningOutcomes || []).map(o => `<li><i class="bi bi-check-circle-fill text-success me-2"></i>${o}</li>`).join('');
-            
             const resourcesHtml = (module.resources || []).map(r => {
-                // NEW: Add a checkbox for each resource, but only if the course is saved
-                const checkboxHtml = courseId 
-                    ? `<input class="form-check-input me-2 resource-checkbox" type="checkbox" data-resource-url="${r.url}">`
-                    : '';
+                const checkboxHtml = courseId ? `<input class="form-check-input me-2 resource-checkbox" type="checkbox" data-resource-url="${r.url}">` : '';
                 return `<li>${checkboxHtml}${getIconForType(r.type)}<a href="${r.url}" target="_blank">${r.title}</a> <small class="text-muted">(${r.type})</small></li>`;
             }).join('');
-
-            return `
-                <div class="list-group-item mb-3">
-                    <h5>Module ${index + 1}: ${module.name || 'Untitled'}</h5>
-                    <p>${module.description || ''}</p>
-                    <div class="mt-2"><strong>Learning Outcomes:</strong><ul class="list-unstyled ms-3">${outcomesHtml}</ul></div>
-                    <div class="mt-2"><strong>Recommended Resources:</strong><ul class="list-unstyled ms-3">${resourcesHtml}</ul></div>
-                </div>`;
+            return `<div class="list-group-item mb-3"><h5>Module ${index + 1}: ${module.name || 'Untitled'}</h5><p>${module.description || ''}</p><div class="mt-2"><strong>Learning Outcomes:</strong><ul class="list-unstyled ms-3">${outcomesHtml}</ul></div><div class="mt-2"><strong>Recommended Resources:</strong><ul class="list-unstyled ms-3">${resourcesHtml}</ul></div></div>`;
         }).join('');
-
         generatedContent.innerHTML = htmlContent;
-        
-        // NEW: If the course is saved, fetch its progress
         if (courseId) {
             fetchAndApplyProgress(courseId);
         }
     };
-
-    // --- NEW: Progress Tracking Functions ---
+    
     const fetchAndApplyProgress = async (courseId) => {
         if (!courseId || !isLoggedIn) return;
         try {
@@ -148,15 +132,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const updateProgressDisplay = (completedResources) => {
         const allCheckboxes = document.querySelectorAll('.resource-checkbox');
         if (allCheckboxes.length === 0) return;
-
         allCheckboxes.forEach(checkbox => {
             checkbox.checked = completedResources.includes(checkbox.dataset.resourceUrl);
         });
-
         const completedCount = completedResources.length;
         const totalCount = allCheckboxes.length;
         const percentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
-
         const progressBar = document.getElementById('courseProgressBar');
         if (progressBar) {
             progressBar.style.width = `${percentage}%`;
@@ -167,7 +148,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const saveProgress = async () => {
         if (!activeCourseId || !isLoggedIn) return;
-        
         const allCheckboxes = document.querySelectorAll('.resource-checkbox');
         const completed_resources = [];
         allCheckboxes.forEach(checkbox => {
@@ -175,28 +155,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 completed_resources.push(checkbox.dataset.resourceUrl);
             }
         });
-
         try {
             await fetch(`/api/course/${activeCourseId}/progress`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ userId: currentUserId, completed_resources })
             });
-            // Update the progress bar after saving
             updateProgressDisplay(completed_resources);
         } catch (error) {
             console.error("Failed to save progress:", error);
         }
     };
-    
-    // NEW: Event listener for checkboxes using event delegation
+
     generatedContent.addEventListener('change', (event) => {
         if (event.target.classList.contains('resource-checkbox')) {
             saveProgress();
         }
     });
 
-    // --- Post-Course Quiz Workflow ---
     const showQuizOptions = (courseId, courseTopic) => {
         activeQuizData = { courseId, courseTopic };
         quizOptionsModal.show();
@@ -207,19 +183,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const quizType = document.getElementById('quizType').value;
         activeQuizData.difficulty = difficulty;
         activeQuizData.quizType = quizType;
-        
         quizOptionsModal.hide();
         postCourseQuizTopic.textContent = activeQuizData.courseTopic;
         postCourseQuizForm.innerHTML = '';
         quizLoadingSpinner.style.display = 'block';
         postCourseQuizModal.show();
-
         try {
             const response = await fetch(`/api/course/${activeQuizData.courseId}/quiz`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ topic: activeQuizData.courseTopic, userId: currentUserId, difficulty, quizType }) });
             const result = await response.json();
             if (!response.ok) throw new Error(result.message);
             if (!result.questions || result.questions.length === 0) throw new Error('No questions were returned.');
-
             postCourseQuizForm.innerHTML = result.questions.map((q, index) => {
                 const optionsHtml = (q.options || []).map(opt => `<div class="form-check"><input class="form-check-input" type="radio" name="question_${q.question_id}" value="${opt.option}" required><label class="form-check-label"> ${opt.text || ''}</label></div>`).join('');
                 return `<div class="mb-4"><strong>${index + 1}. ${q.question_text || ''}</strong>${optionsHtml}</div>`;
@@ -246,7 +219,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- Button Handlers & Auth ---
     saveCourseBtn.addEventListener('click', async () => {
         if (!lastGeneratedCourseData) { alert('No course generated yet!'); return; }
         try {
@@ -255,47 +227,38 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await response.json();
             if (!response.ok) throw new Error(result.message);
             alert(result.message);
-            
-            // NEW: After saving, the course now has an ID. Reload it to enable progress tracking.
             activeCourseId = result.courseId;
             displayGeneratedCourse(lastGeneratedCourseData.generatedCourse, activeCourseId);
-            saveCourseBtn.style.display = 'none'; // Hide save button after saving
-            
+            saveCourseBtn.style.display = 'none';
         } catch (error) { alert(`Failed to save course: ${error.message}`); }
     });
-
+    
     myCoursesBtn.addEventListener('click', async () => {
         if (!isLoggedIn) { alert('Please log in first.'); return; }
-        showSection(myCoursesSection);
+        showSection(myCoursesSection, mainAppSection);
         loggedInStatus.style.display = 'flex';
         myCoursesList.innerHTML = '<p class="text-center text-muted">Loading...</p>';
         try {
             const response = await fetch(`/my-courses?userId=${currentUserId}`);
             const result = await response.json();
             if (!response.ok) throw new Error(result.message);
-            
             if (result.courses && result.courses.length > 0) {
                 myCoursesList.innerHTML = '';
                 result.courses.forEach(course => {
                     const courseCard = document.createElement('div');
                     courseCard.className = 'list-group-item list-group-item-action flex-column align-items-start mb-3 custom-form';
                     const courseTitle = (course.generated_content && course.generated_content.title) ? course.generated_content.title : course.topic;
-                    
-                    courseCard.innerHTML = `
-                        <div class="d-flex w-100 justify-content-between">
-                            <h5 class="mb-1">${course.topic || 'No Topic'}</h5>
-                            <small>${new Date(course.created_at).toLocaleDateString()}</small>
-                        </div>
-                        <p class="mb-1">${courseTitle}</p>
-                        <button class="btn btn-sm btn-primary mt-2 view-course-btn">View Course</button>
-                        <button class="btn btn-sm btn-outline-primary mt-2 take-quiz-btn">Take Quiz</button>
-                    `;
+                    const allResources = course.generated_content.modules?.flatMap(m => m.resources) || [];
+                    const totalCount = allResources.length;
+                    const completedCount = course.completed_resources.length;
+                    const percentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+                    courseCard.innerHTML = `<div class="d-flex w-100 justify-content-between"><h5 class="mb-1">${course.topic || 'No Topic'}</h5><small>${new Date(course.created_at).toLocaleDateString()}</small></div><p class="mb-1">${courseTitle}</p><div class="progress mt-2" style="height: 15px;"><div class="progress-bar bg-success" role="progressbar" style="width: ${percentage}%;" aria-valuenow="${percentage}" aria-valuemin="0" aria-valuemax="100">${percentage}%</div></div><div class="mt-2"><button class="btn btn-sm btn-primary mt-2 view-course-btn">View Course</button><button class="btn btn-sm btn-outline-primary mt-2 take-quiz-btn">Take Quiz</button></div>`;
                     
                     courseCard.querySelector('.view-course-btn').addEventListener('click', () => {
-                        showSection(mainAppSection);
+                        showSection(mainAppSection, myCoursesSection);
                         courseForm.style.display = 'none';
                         courseOutput.style.display = 'block';
-                        saveCourseBtn.style.display = 'none'; // This course is already saved
+                        saveCourseBtn.style.display = 'none';
                         displayGeneratedCourse(course.generated_content, course.id);
                     });
 
@@ -308,7 +271,20 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) { myCoursesList.innerHTML = `<p class="text-danger">Failed to load courses: ${error.message}</p>`; }
     });
 
-    backToFormBtn.addEventListener('click', () => { courseOutput.style.display = 'none'; courseForm.style.display = 'block'; });
+    // --- NEW: Smart Back Button Logic ---
+    backBtn.addEventListener('click', () => {
+        courseOutput.style.display = 'none';
+        // If the previous section was the course form (i.e., a new course was generated)
+        if (previousSection === courseForm) {
+            courseForm.style.display = 'block';
+        } else {
+            // Otherwise, go back to the "My Courses" list
+            myCoursesBtn.click();
+        }
+    });
+
+    backToGeneratorBtn.addEventListener('click', () => showMainApp(currentUsername));
+    
     resetFormBtn.addEventListener('click', () => { courseForm.reset(); courseOutput.style.display = 'none'; generatedContent.innerHTML = ''; lastGeneratedCourseData = null; });
     exportPdfBtn.addEventListener('click', () => { if (!lastGeneratedCourseData && !activeCourseId) { alert('Please generate or view a course first.'); return; } const elementToExport = generatedContent; const originalStyle = elementToExport.style.overflowX; elementToExport.style.overflowX = 'visible'; html2pdf().set({ margin: 10, filename: 'Learniva_Curriculum.pdf', image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }).from(elementToExport).save().then(() => { elementToExport.style.overflowX = originalStyle; }); });
     
@@ -320,7 +296,7 @@ document.addEventListener('DOMContentLoaded', () => {
         logoutBtn.addEventListener('click', () => { isLoggedIn = false; currentUserId = null; currentUsername = ''; lastGeneratedCourseData = null; courseForm.reset(); courseOutput.style.display = 'none'; showLogin(); });
         signupForm.addEventListener('submit', async (event) => { event.preventDefault(); const username = signupForm.querySelector('#signupUsername').value.trim(); const email = signupForm.querySelector('#signupEmail').value.trim(); const password = signupForm.querySelector('#signupPassword').value.trim(); if (!username || !password) { alert('Username and password required.'); return; } try { const response = await fetch('/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, email, password }) }); const result = await response.json(); alert(result.message); if (response.ok) { signupForm.reset(); showLogin(); } } catch (error) { alert(`Signup failed: ${error.message}.`); } });
         loginForm.addEventListener('submit', async (event) => { event.preventDefault(); const username = loginForm.querySelector('#loginUsername').value.trim(); const password = loginForm.querySelector('#loginPassword').value.trim(); if (!username || !password) { alert('Username and password required.'); return; } try { const response = await fetch('/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) }); const result = await response.json(); if (!response.ok) throw new Error(result.message); alert(result.message); loginForm.reset(); isLoggedIn = true; currentUsername = result.username; currentUserId = result.userId; showMainApp(currentUsername); } catch (error) { alert(`Login failed: ${error.message}.`); } });
-        backToMainFromMyCourses.addEventListener('click', () => showMainApp(currentUsername));
+        backToGeneratorBtn.addEventListener('click', () => showMainApp(currentUsername)); // Corrected this line
     };
     
     setupAuthListeners();

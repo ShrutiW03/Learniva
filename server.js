@@ -167,7 +167,7 @@ app.post('/save-course', async (req, res) => {
   }
 });
 
-// ROUTE 5: Get all courses for a user
+// ROUTE 5: Get all courses for a user (MODIFIED)
 app.get('/my-courses', async (req, res) => {
     const userId = req.query.userId;
     if (!userId) {
@@ -175,15 +175,39 @@ app.get('/my-courses', async (req, res) => {
     }
     try {
         const [courses] = await pool.execute(
-            `SELECT id, topic, duration, skill_level, learning_goals, generated_content, created_at FROM courses WHERE user_id = ? ORDER BY created_at DESC`,
-            [userId]
+            `SELECT c.*, p.completed_resources 
+             FROM courses c
+             LEFT JOIN user_course_progress p ON c.id = p.course_id AND p.user_id = ?
+             WHERE c.user_id = ? 
+             ORDER BY c.created_at DESC`,
+            [userId, userId]
         );
         
         const parsedCourses = courses.map(course => {
             try {
-                return {...course, generated_content: JSON.parse(course.generated_content)};
+                const parsedContent = JSON.parse(course.generated_content);
+
+                // --- FIX: Check if completed_resources is a string before parsing ---
+                let completedResources = [];
+                if (course.completed_resources) {
+                    // If it's a string, parse it. If it's already an object (from the DB driver), use it directly.
+                    completedResources = typeof course.completed_resources === 'string' 
+                        ? JSON.parse(course.completed_resources) 
+                        : course.completed_resources;
+                }
+
+                return {
+                    ...course, 
+                    generated_content: parsedContent,
+                    completed_resources: completedResources
+                };
             } catch (parseError) {
-                return {...course, generated_content: { title: "Error: Could not load content" }}; 
+                console.error("Parse error for course ID", course.id, parseError);
+                return {
+                    ...course, 
+                    generated_content: { title: "Error: Could not load content" },
+                    completed_resources: []
+                }; 
             }
         });
 
@@ -194,7 +218,7 @@ app.get('/my-courses', async (req, res) => {
     }
 });
 
-// --- NEW ROUTE A: Get course progress ---
+// ROUTE 6: Get course progress
 app.get('/api/course/:courseId/progress', async (req, res) => {
     const { courseId } = req.params;
     const { userId } = req.query;
@@ -211,7 +235,7 @@ app.get('/api/course/:courseId/progress', async (req, res) => {
         if (rows.length > 0) {
             res.json({ status: 'success', completed_resources: rows[0].completed_resources || [] });
         } else {
-            res.json({ status: 'success', completed_resources: [] }); // No progress found, return empty array
+            res.json({ status: 'success', completed_resources: [] });
         }
     } catch (error) {
         console.error("Error fetching course progress:", error);
@@ -219,7 +243,7 @@ app.get('/api/course/:courseId/progress', async (req, res) => {
     }
 });
 
-// --- NEW ROUTE B: Update course progress ---
+// ROUTE 7: Update course progress
 app.post('/api/course/:courseId/progress', async (req, res) => {
     const { courseId } = req.params;
     const { userId, completed_resources } = req.body;
@@ -231,8 +255,6 @@ app.post('/api/course/:courseId/progress', async (req, res) => {
     const completedResourcesJson = JSON.stringify(completed_resources);
 
     try {
-        // This is an "UPSERT" query: It inserts a new row if one doesn't exist for the user/course combo,
-        // or it updates the existing row if it does exist.
         await pool.execute(
             `INSERT INTO user_course_progress (user_id, course_id, completed_resources) VALUES (?, ?, ?)
              ON DUPLICATE KEY UPDATE completed_resources = ?`,
@@ -246,7 +268,7 @@ app.post('/api/course/:courseId/progress', async (req, res) => {
 });
 
 
-// ROUTE 6: User Signup
+// ROUTE 8: User Signup
 app.post('/signup', async (req, res) => {
     const { username, password, email } = req.body;
     if (!username || !password) return res.status(400).json({ status: 'error', message: 'Username and password are required.' });
@@ -264,7 +286,7 @@ app.post('/signup', async (req, res) => {
     }
 });
 
-// ROUTE 7: User Login
+// ROUTE 9: User Login
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ status: 'error', message: 'Username and password are required.' });

@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -37,14 +36,14 @@
             <div id="courseOutput" class="mt-5" style="display: none;">
                 <h2 class="text-center mb-4 output-title">Your Generated Course Curriculum 📚</h2>
                 <div id="generatedContent" class="bg-light p-4 border rounded shadow-sm generated-content-box"></div>
-                <div class="d-grid gap-2 mt-4"><button type="button" class="btn btn-outline-secondary custom-btn" id="backToFormBtn">← Back to Generator</button><button type="button" class="btn btn-success btn-lg custom-btn" id="saveCourseBtn">Save Course</button><button type="button" class="btn btn-info btn-lg custom-btn" id="exportPdfBtn">Export as PDF</button></div>
+                <div class="d-grid gap-2 mt-4"><button type="button" class="btn btn-outline-secondary custom-btn" id="backBtn">← Back</button><button type="button" class="btn btn-success btn-lg custom-btn" id="saveCourseBtn">Save Course</button><button type="button" class="btn btn-info btn-lg custom-btn" id="exportPdfBtn">Export as PDF</button></div>
             </div>
         </div>
     
         <div id="myCoursesSection" class="mt-5" style="display: none;">
             <h2 class="text-center mb-4 output-title">My Saved Courses 📂</h2>
             <div id="myCoursesList" class="list-group generated-content-box"></div>
-            <div class="d-grid gap-2 mt-4"><button type="button" class="btn btn-outline-secondary custom-btn" id="backToMainFromMyCourses">Back to Generator</button></div>
+            <div class="d-grid gap-2 mt-4"><button type="button" class="btn btn-outline-secondary custom-btn" id="backToGeneratorBtn">Back to Generator</button></div>
         </div>
     
         <div id="authNav" class="text-center mt-4 auth-nav" style="display: none;"><button type="button" class="btn btn-primary me-2 custom-btn" id="showLoginBtn">Login</button><button type="button" class="btn btn-outline-secondary custom-btn" id="showSignupBtn">Sign Up</button></div>
@@ -54,7 +53,6 @@
         <div id="loginFormSection" class="p-4 border rounded shadow-sm bg-light mt-4 custom-form" style="display: none;"><h2 class="text-center mb-4">Login to Learniva</h2><form id="loginForm"><div class="mb-3"><label for="loginUsername" class="form-label">Username:</label><input type="text" class="form-control" id="loginUsername" required></div><div class="mb-3"><label for="loginPassword" class="form-label">Password:</label><input type="password" class="form-control" id="loginPassword" required></div><div class="d-grid gap-2"><button type="submit" class="btn btn-success custom-btn">Login</button><button type="button" class="btn btn-link link-btn" id="showSignupFromLogin">Don't have an account? Sign Up</button></div></form></div>
     </div>
     
-    <!-- Quiz Options Modal -->
     <div class="modal fade" id="quizOptionsModal" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -86,7 +84,6 @@
       </div>
     </div>
 
-    <!-- Post-Course Quiz Display Modal -->
     <div class="modal fade" id="postCourseQuizModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
       <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
