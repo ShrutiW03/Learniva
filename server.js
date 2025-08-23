@@ -40,37 +40,33 @@ app.get('/', (req, res) => {
 // --- CORE API ROUTES ---
 // =================================================================
 
-// ROUTE 1: Generate a course (MODIFIED)
+// ROUTE 1: Generate a course
 app.post('/api/course/generate', async (req, res) => {
     const { topic, duration, learningGoals, skillLevel } = req.body;
+    const sanitizedGoals = learningGoals.replace(/"/g, '\\"').replace(/\n/g, ' ');
 
-    // --- NEW, MORE POWERFUL PROMPT ---
     const coursePrompt = `
       You are an expert curriculum designer. Create a detailed course outline for a user with a skill level of "${skillLevel}".
-      The topic is "${topic}" for a duration of "${duration} weeks" with these goals: "${learningGoals}".
-
+      The topic is "${topic}" for a duration of "${duration} weeks" with these goals: "${sanitizedGoals}".
       Generate a strict JSON object with a "title" (string) and a "modules" (array).
-      
-      Each object in the "modules" array must have:
-      1. "name": A string for the module title.
-      2. "description": A string explaining what the module covers.
-      3. "learningOutcomes": An array of strings.
-      4. "resources": An array of 3 to 5 resource objects.
-      
-      Each object in the "resources" array must have:
-      1. "title": A string for the resource title.
-      2. "url": A valid string URL.
-      3. "type": A string categorizing the resource. Use one of the following: "YouTube Video", "Official Documentation", "Article", "Interactive Tutorial".
-
-      For the resources, find the most relevant and highly-regarded content available on the internet. For YouTube videos, prioritize those with high view counts and positive reception.
+      Each object in the "modules" array must have: "name", "description", "learningOutcomes" (array of strings), and "resources" (array of 3 to 5 objects).
+      Each object in the "resources" array must have: "title", "url", and "type" (one of: "YouTube Video", "Official Documentation", "Article", "Interactive Tutorial").
+      For resources, find relevant, highly-regarded content. For YouTube videos, prioritize high view counts.
     `;
 
     try {
         const result = await geminiModel.generateContent(coursePrompt);
         const response = await result.response;
-        // Clean the response text to ensure it's valid JSON
-        const cleanedJsonString = response.text().trim().replace(/^```json\n|```$/g, '');
-        const generatedCourse = JSON.parse(cleanedJsonString);
+        const rawText = response.text();
+        
+        const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+        if (!jsonMatch || !jsonMatch[0]) {
+            console.error("Raw AI Response:", rawText);
+            throw new Error("Could not find a valid JSON object in the AI's response.");
+        }
+        
+        const jsonString = jsonMatch[0];
+        const generatedCourse = JSON.parse(jsonString);
         
         res.json({
             status: 'success',
@@ -91,7 +87,7 @@ app.post('/api/course/:courseId/quiz', async (req, res) => {
     const questionCount = quizType === 'test' ? 10 : 5;
     console.log(`Generating a ${difficulty} ${quizType} with ${questionCount} questions for topic: "${topic}"`);
 
-    const prompt = `You are a quiz generator. Create a ${difficulty}-level ${quizType} with exactly ${questionCount} multiple-choice questions to test a user's knowledge on the topic: "${topic}". Format the output strictly as a JSON object with a "questions" key. Each question must have "question_id" (a unique number), "question_text", "options" (an array of 4 objects, each with an "option" key like "A" and a "text" key), and "correct_option".`;
+    const prompt = `You are a quiz generator. Create a ${difficulty}-level ${quizType} with exactly ${questionCount} multiple-choice questions for the topic: "${topic}". Format as a strict JSON object with a "questions" key. Each question must have "question_id" (unique number), "question_text", "options" (array of 4 objects with "option" like "A" and "text"), and "correct_option".`;
     
     try {
         const result = await geminiModel.generateContent(prompt);
@@ -120,10 +116,13 @@ app.post('/api/course/:courseId/quiz', async (req, res) => {
     }
 });
 
-// ROUTE 3: Submit the post-course quiz
+// ROUTE 3: Submit the post-course quiz (MODIFIED)
 app.post('/api/course/:courseId/submit-quiz', async (req, res) => {
     const { courseId } = req.params;
-    const { userId, answers, topic, difficulty, quizType } = req.body;
+    // --- FIX: Use 'courseTopic' to match the frontend and provide a default value ---
+    const { userId, answers, courseTopic, difficulty, quizType } = req.body;
+    const topic = courseTopic || 'General Quiz'; // Ensure 'topic' is never undefined
+
     const cacheKey = `${userId}_${courseId}`;
     const correctAnswers = quizAnswersCache[cacheKey];
 
@@ -185,7 +184,6 @@ app.get('/my-courses', async (req, res) => {
             try {
                 return {...course, generated_content: JSON.parse(course.generated_content)};
             } catch (parseError) {
-                console.error(`Could not parse JSON for course ID ${course.id}:`, parseError);
                 return {...course, generated_content: { title: "Error: Could not load content" }}; 
             }
         });
